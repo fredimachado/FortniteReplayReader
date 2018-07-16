@@ -6,11 +6,19 @@ namespace FortniteReplayReader
     class Program
     {
         const uint FileMagic = 0x1CA2E27F;
-	    const uint FileVersion = 5;
+        const uint FileVersion = 5;
 
         static void Main(string[] args)
         {
-            var replayFiles = Directory.EnumerateFiles(@"C:\Users\fredi\AppData\Local\FortniteGame\Saved\Demos", "*.replay");
+            var localAppDataFolder = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+            var replaysFolder = Path.Combine(localAppDataFolder, @"FortniteGame\Saved\Demos");
+
+            if (!Directory.Exists(replaysFolder))
+            {
+                throw new Exception("Path to replay files not found.");
+            }
+
+            var replayFiles = Directory.EnumerateFiles(replaysFolder, "*.replay");
 
             foreach (var replayFile in replayFiles)
             {
