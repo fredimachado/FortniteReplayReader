@@ -44,7 +44,7 @@ namespace FortniteReplayReader
                 string friendlyName = reader.ReadFString();
                 bool isLive = reader.ReadUInt32() != 0;
 
-                reader.BaseStream.Seek(12, SeekOrigin.Current);
+                reader.Skip(12); // Skip the unknown bytes
 
                 System.Console.ForegroundColor = ConsoleColor.Red;
                 System.Console.WriteLine($"Replay: {replayFile}");
@@ -69,7 +69,7 @@ namespace FortniteReplayReader
 
                         if (group == "playerElim")
                         {
-                            reader.BaseStream.Seek(45, SeekOrigin.Current);
+                            reader.Skip(45);
 
                             string nick1 = reader.ReadFString(); // person who got killed
                             string nick2 = reader.ReadFString(); // killer
@@ -79,7 +79,7 @@ namespace FortniteReplayReader
 
                         if (metadata == "AthenaMatchStats")
                         {
-                            reader.BaseStream.Seek(12, SeekOrigin.Current);
+                            reader.Skip(12);
 
                             uint eliminations = reader.ReadUInt32();
 
@@ -88,7 +88,7 @@ namespace FortniteReplayReader
 
                         if (metadata == "AthenaMatchTeamStats")
                         {
-                            reader.BaseStream.Seek(4, SeekOrigin.Current);
+                            reader.Skip(4);
 
                             uint position = reader.ReadUInt32();
                             uint totalPlayers = reader.ReadUInt32();

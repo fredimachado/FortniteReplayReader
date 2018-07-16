@@ -37,5 +37,10 @@ namespace FortniteReplayReader
 
             return value.Trim(new[] { ' ', '\0' });
         }
+
+        public static void Skip(this BinaryReader reader, int byteCount)
+        {
+            reader.BaseStream.Seek(byteCount, SeekOrigin.Current);
+        }
     }
 }
