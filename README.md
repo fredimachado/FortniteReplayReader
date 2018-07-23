@@ -2,6 +2,7 @@
 Reading player eliminations, how many players you eliminated, your position and total player count from Fortnite replay files.
 
 This is the code created on a live stream at https://www.twitch.tv/fredimachadotv
+
 The video is available on YouTube at https://youtu.be/m2Twu9k5VQQ
 
 ## How to run
