@@ -8,24 +8,14 @@ namespace FortniteReplayReader
     {
         public static string ReadFString(this BinaryReader reader)
         {
-            int length = reader.ReadInt32();
-            bool isUnicode = length < 0;
-
-            if (isUnicode)
-            {
-                length = -length;
-            }
-
-            if (length < 0)
-            {
-                throw new Exception("Archive is corrupted");
-            }
-
+            var length = reader.ReadInt32();
+            var isUnicode = length < 0;
             byte[] data;
             string value;
 
             if (isUnicode)
             {
+                length = -length;
                 data = reader.ReadBytes(length * 2);
                 value = Encoding.Unicode.GetString(data);
             }
@@ -38,7 +28,7 @@ namespace FortniteReplayReader
             return value.Trim(new[] { ' ', '\0' });
         }
 
-        public static void Skip(this BinaryReader reader, int byteCount)
+        public static void SkipBytes(this BinaryReader reader, uint byteCount)
         {
             reader.BaseStream.Seek(byteCount, SeekOrigin.Current);
         }

@@ -6,105 +6,101 @@ namespace FortniteReplayReader
     class Program
     {
         const uint FileMagic = 0x1CA2E27F;
-        const uint FileVersion = 5;
 
+        enum GunType : byte
+        {
+            Storm,
+            Fall,
+            Pistol,
+            Shotgun,
+            AR,
+            SMG,
+            Sniper
+        }
         static void Main(string[] args)
         {
-            var localAppDataFolder = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-            var replaysFolder = Path.Combine(localAppDataFolder, @"FortniteGame\Saved\Demos");
+            var replayFile = @"C:\Users\Streaming\AppData\Local\FortniteGame\Saved\Demos\fixed-UnsavedReplay-2018.07.13-23.29.16.replay";
 
-            if (!Directory.Exists(replaysFolder))
-            {
-                throw new Exception("Path to replay files not found.");
-            }
-
-            var replayFiles = Directory.EnumerateFiles(replaysFolder, "*.replay");
-
-            foreach (var replayFile in replayFiles)
-            {
-                ReadReplayFile(replayFile);
-            }
-        }
-
-        private static void ReadReplayFile(string replayFile)
-        {
             using (BinaryReader reader = new BinaryReader(File.Open(replayFile, FileMode.Open)))
             {
-                uint magicNumber = reader.ReadUInt32();
-                uint fileVersion = reader.ReadUInt32();
+                var magicNumber = reader.ReadUInt32();
+                var fileVersion = reader.ReadUInt32();
 
-                if (magicNumber != FileMagic || fileVersion != FileVersion)
+                if (magicNumber != FileMagic)
                 {
-                    throw new Exception("This is an invalid replay file.");
+                    throw new Exception("Invalid replay file");
                 }
 
-                uint lengthInMs = reader.ReadUInt32();
-                uint networkVersion = reader.ReadUInt32();
-                uint changeList = reader.ReadUInt32();
-                string friendlyName = reader.ReadFString();
-                bool isLive = reader.ReadUInt32() != 0;
+                var lengthInMs = reader.ReadInt32();
+                var networkVersion = reader.ReadUInt32();
+                var changeList = reader.ReadUInt32();
 
-                reader.Skip(12); // Skip the unknown bytes
+                var friendlyName = reader.ReadFString();
 
-                System.Console.ForegroundColor = ConsoleColor.Red;
-                System.Console.WriteLine($"Replay: {replayFile}");
-                System.Console.ForegroundColor = ConsoleColor.White;
+                var isLive = reader.ReadUInt32() != 0;
 
-                System.Console.WriteLine($"Duration: {MillisecondsToTime(lengthInMs)}");
+                if (fileVersion >= 3)
+                {
+                    var timestamp = new DateTime(reader.ReadInt64());
+                }
+
+                if (fileVersion >= 2)
+                {
+                    var isCompressed = reader.ReadUInt32() != 0;
+                }
 
                 while (reader.BaseStream.Position < reader.BaseStream.Length)
                 {
-                    uint chunkType = reader.ReadUInt32();
-                    int sizeInBytes = reader.ReadInt32();
-                    long offset = reader.BaseStream.Position;
+                    var chunkType = reader.ReadUInt32();
+                    var chunkSizeInBytes = reader.ReadInt32();
+
+                    var offset = reader.BaseStream.Position;
 
                     if (chunkType == 3) // Event
                     {
-                        string id = reader.ReadFString();
-                        string group = reader.ReadFString();
-                        string metadata = reader.ReadFString();
-                        uint time1 = reader.ReadUInt32();
-                        uint time2 = reader.ReadUInt32();
-                        int eventSizeInBytes = reader.ReadInt32();
+                        var id = reader.ReadFString();
+                        var group = reader.ReadFString();
+                        var metadata = reader.ReadFString();
+                        var time1 = reader.ReadUInt32();
+                        var time2 = reader.ReadUInt32();
+                        var sizeInBytes = reader.ReadInt32();
 
                         if (group == "playerElim")
                         {
-                            reader.Skip(45);
+                            reader.SkipBytes(45);
+                            var nick1 = reader.ReadFString(); // player eliminated
+                            var nick2 = reader.ReadFString(); // killer
+                            var gunType = (GunType)reader.ReadByte();
 
-                            string nick1 = reader.ReadFString(); // person who got killed
-                            string nick2 = reader.ReadFString(); // killer
-
-                            System.Console.WriteLine($"{MillisecondsToTime(time1)} - {nick2} killed {nick1}");
+                            System.Console.WriteLine($"{MillisecondsToTime(time1)} - {nick1} was eliminated by {nick2} with {gunType}");
                         }
 
                         if (metadata == "AthenaMatchStats")
                         {
-                            reader.Skip(12);
+                            reader.SkipBytes(12);
+                            var eliminations = reader.ReadUInt32();
 
-                            uint eliminations = reader.ReadUInt32();
-
-                            System.Console.WriteLine($"Eliminations: {eliminations}");
+                            System.Console.WriteLine($"You eliminated {eliminations} players.");
                         }
 
                         if (metadata == "AthenaMatchTeamStats")
                         {
-                            reader.Skip(4);
+                            reader.SkipBytes(4);
+                            var position = reader.ReadUInt32();
+                            var totalPlayers = reader.ReadUInt32();
 
-                            uint position = reader.ReadUInt32();
-                            uint totalPlayers = reader.ReadUInt32();
-
-                            System.Console.WriteLine($"Position: {position}/{totalPlayers}");
+                            System.Console.WriteLine($"{position}/{totalPlayers}");
                         }
                     }
 
-                    reader.BaseStream.Seek(offset + sizeInBytes, SeekOrigin.Begin);
+                    reader.BaseStream.Seek(offset + chunkSizeInBytes, SeekOrigin.Begin);
                 }
             }
         }
 
-        static string MillisecondsToTime(uint millisenconds)
+        static string MillisecondsToTime(uint milliseconds)
         {
-            var t = TimeSpan.FromMilliseconds(millisenconds);
+            var t = TimeSpan.FromMilliseconds(milliseconds);
             return $"{t.Minutes:D2}:{t.Seconds:D2}";
         }
     }
