@@ -7,7 +7,7 @@
             "type": "process",
             "args": [
                 "build",
-                "${workspaceFolder}/src/FortniteReplayReader/FortniteReplayReader.csproj"
+                "${workspaceFolder}/FortniteReplayReader.sln"
             ],
             "problemMatcher": "$msCompile"
         }
