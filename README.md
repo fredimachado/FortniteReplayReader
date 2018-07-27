@@ -7,7 +7,15 @@ The video is available on YouTube at https://youtu.be/m2Twu9k5VQQ
 
 ## How to run
 - Download and install .NET Core 2.1 SDK at https://www.microsoft.com/net/download
-- Open a Powershell/CMD/Terminal, CD to the code and run: `dotnet run`
+- Open a Powershell/CMD/Terminal, CD to the code and run: `dotnet run --project .\src\ConsoleReader\`
 
 I really recommend you to download and install Visual Studio Code or Visual Studio IDE Community though (They are free!)
 They are available at https://visualstudio.microsoft.com
+
+## TODO
+This is what we're going to do in upcoming live streams:
+
+- [ ] Review classes to make it easy to consume
+- [ ] Write Unit tests
+- [ ] Build CI/CD pipeline using AppVeyor
+- [ ] Publish NuGet packages
