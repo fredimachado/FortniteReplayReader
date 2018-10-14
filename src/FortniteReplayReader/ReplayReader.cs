@@ -77,8 +77,19 @@ namespace FortniteReplayReader
 
                         if (metadata == AthenaMatchStatsMetadata)
                         {
-                            reader.SkipBytes(12);
+                            //shots hit, shots fired, and headshots might be in here somewhere
+                            reader.SkipBytes(4);
+                            replayInfo.Accuracy = reader.ReadUInt32();
+                            replayInfo.Assists = reader.ReadUInt32();
                             replayInfo.Eliminations = reader.ReadUInt32();
+                            replayInfo.DamageToPlayers = reader.ReadUInt32();
+                            reader.SkipBytes(4);
+                            replayInfo.Revives = reader.ReadUInt32();
+                            replayInfo.DamageTaken = reader.ReadUInt32();
+                            replayInfo.DamageToStructures = reader.ReadUInt32();
+                            replayInfo.MaterialsGathered = reader.ReadUInt32();
+                            replayInfo.MaterialsUsed = reader.ReadUInt32();
+                            replayInfo.CentimetersTraveled = reader.ReadUInt32();
                         }
 
                         if (metadata == AthenaMatchTeamStatsMetadata)
