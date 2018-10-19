@@ -9,10 +9,10 @@ namespace ConsoleReader
     {
         static void Main(string[] args)
         {
-            var localAppDataFolder = Environment.GetFolderPath(SpecialFolder.LocalApplicationData);
+            var localAppDataFolder = GetFolderPath(SpecialFolder.LocalApplicationData);
             var replayFilesFolder = Path.Combine(localAppDataFolder, @"FortniteGame\Saved\Demos");
-            
-            var replayFiles = Directory.EnumerateFiles(replayFilesFolder, "*.replay");
+
+            var replayFiles = Directory.EnumerateFiles(replayFilesFolder, "*20.22.26.replay");
 
             foreach (var replayFile in replayFiles)
             {
@@ -28,9 +28,11 @@ namespace ConsoleReader
 
                 foreach (var elimination in replayInfo.PlayerEliminations)
                 {
-                    System.Console.WriteLine($"Player {elimination.Eliminated} was eliminated by {elimination.Eliminator} with {elimination.GunType}");
+                    var knocked = elimination.Knocked ? "knocked out" : "eliminated";
+                    Console.WriteLine($"{elimination.Time} {elimination.Eliminated} was {knocked} by {elimination.Eliminator} with {elimination.GunType}");
                 }
             }
+            Console.ReadLine();
         }
     }
 }
