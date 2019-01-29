@@ -1,161 +1,239 @@
+﻿using FortniteReplayReader.Exceptions;
+using FortniteReplayReader.Extensions;
+using FortniteReplayReader.Models;
 using System;
 using System.IO;
-using FortniteReplayReader.Models;
-using FortniteReplayReader.Extensions;
 
 namespace FortniteReplayReader
 {
     public class ReplayReader
     {
-        const uint FileMagic = 0x1CA2E27F;
-        const string PlayerEliminationGroup = "playerElim";
-        const string AthenaMatchStatsMetadata = "AthenaMatchStats";
-        const string AthenaMatchTeamStatsMetadata = "AthenaMatchTeamStats";
+        private Replay Replay;
 
-        private readonly string replayFilePath;
-
-        public ReplayReader(string replayFilePath)
+        public Replay Read(string file, int offset)
         {
-            this.replayFilePath = replayFilePath;
+            using (var stream = File.Open(file, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+            {
+                return Read(stream, offset);
+            }
         }
 
-        public ReplayInfo ReadReplayInfo()
+        public Replay Read(Stream stream, int offset)
         {
-            var replayInfo = new ReplayInfo();
-
-            using (BinaryReader reader = new BinaryReader(File.Open(replayFilePath, FileMode.Open, FileAccess.Read)))
+            using (FortniteBinaryReader reader = new FortniteBinaryReader(stream))
             {
-                var magicNumber = reader.ReadUInt32();
-                var fileVersion = reader.ReadUInt32();
+                reader.BaseStream.Position = offset;
+                ParseChunks(reader);
 
-                if (magicNumber != FileMagic)
-                {
-                    throw new Exception("Invalid replay file");
-                }
+                return Replay;
+            }
+        }
 
-                replayInfo.LengthInMs = reader.ReadUInt32();
-                var networkVersion = reader.ReadUInt32();
-                replayInfo.Changelist = reader.ReadUInt32();
+        public Replay Read(string file)
+        {
+            using (var stream = File.Open(file, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+            {
+                return Read(stream);
+            }
+        }
 
-                replayInfo.FriendlyName = reader.ReadFString();
+        public Replay Read(Stream stream)
+        {
+            Replay = new Replay();
+            using (FortniteBinaryReader reader = new FortniteBinaryReader(stream))
+            {
+                ParseMeta(reader);
+                ParseChunks(reader);
+                return Replay;
+            }
+        }
 
-                var isLive = reader.ReadUInt32() != 0;
+        private void ParseMeta(FortniteBinaryReader reader)
+        {
+            var magicNumber = reader.ReadUInt32();
 
-                if (fileVersion >= (uint)ReplayVersionHistory.HISTORY_RECORDED_TIMESTAMP)
-                {
-                    replayInfo.Timestamp = new DateTime(reader.ReadInt64());
-                }
-
-                if (fileVersion >= (uint)ReplayVersionHistory.HISTORY_COMPRESSION)
-                {
-                    var isCompressed = reader.ReadUInt32() != 0;
-                }
-
-                while (reader.BaseStream.Position < reader.BaseStream.Length)
-                {   
-                    var chunkType = (ReplayChunkType)reader.ReadUInt32();
-                    var chunkSizeInBytes = reader.ReadInt32();
-
-                    var offset = reader.BaseStream.Position;
-
-                    if (chunkType == ReplayChunkType.Checkpoint)
-                    {
-                        Console.WriteLine($"{chunkType} - offset: {offset}, size: {chunkSizeInBytes}");
-                        var checkpointId = reader.ReadFString();
-                        var checkpoint = reader.ReadFString();
-                        var something0 = reader.ReadUInt32(); // 2 in full party squads + playground
-                        reader.SkipBytes(26);
-                        // checkpoint0 33 00 6A EA 00 00 6A EA 00 00 E4 E2 01 00 A4 33 05 00 DC E2 01 00 8C 02 07 64 F4 19 9B 03 00 A1 3F 29 C7 00 00 00
-                        // checkpoint1 36 00 EC D4 01 00 EC D4 01 00 44 7C 02 00 10 9C 07 00 3C 7C 02 00 8C 02 07 64 F4 AA B3 05 00 A1 3F 29 7E 01 00 00
-
-                    }
-
-                    else if (chunkType == ReplayChunkType.ReplayData)
-                    {
-                        Console.WriteLine($"{chunkType} - offset: {offset}, size: {chunkSizeInBytes}");
-                        var start = reader.ReadUInt32();
-                        var end = reader.ReadUInt32(); // number of events?
-                        var length = reader.ReadUInt32(); // remaining chunksize
-                        var unknown = reader.ReadUInt32(); // 21 9B 14 00, 85 ED 10 00, BA 01 0E 00
-                        length = reader.ReadUInt32(); // remaining chunksize
-
-                    }
-
-                    else if (chunkType == ReplayChunkType.Header)
-                    {
-                        reader.SkipBytes(46); // 6 + 13 in 3 man squads
-                        var release = reader.ReadFString();
-                        var something0 = reader.ReadInt32(); // 1 in full party squads + playground
-                        var map = reader.ReadFString();
-                        var something1 = reader.ReadInt32(); // 0 in squads + playground
-                        var something2 = reader.ReadInt32(); // 3 in squads + playground
-                        var something3 = reader.ReadInt32(); // 1 in squads + playground
-                        var subGame = reader.ReadFString();
-                    }
-
-                    else if (chunkType == ReplayChunkType.Event)
-                    {
-                        var id = reader.ReadFString();
-                        var group = reader.ReadFString();
-                        var metadata = reader.ReadFString();
-                        var time1 = reader.ReadUInt32();
-                        var time2 = reader.ReadUInt32();
-                        var sizeInBytes = reader.ReadInt32();
-
-                        if (group == PlayerEliminationGroup)
-                        {
-                            reader.SkipBytes(45);
-                            var eliminated = reader.ReadFString();
-                            var eliminator = reader.ReadFString();
-                            var gunType = (GunType) reader.ReadByte();
-                            var knocked = reader.ReadInt32() == 1;
-
-                            if (!Enum.IsDefined(typeof(GunType), gunType))
-                            {
-                                Console.WriteLine(gunType);
-                            }
-
-                            replayInfo.AddPlayerElimination(eliminated, eliminator, gunType, knocked, time1.MillisecondsToTime());
-                        }
-
-                        if (metadata == AthenaMatchStatsMetadata)
-                        {
-                            replayInfo.Unknown1 = reader.ReadUInt32();
-                            if (replayInfo.Unknown1 != 0)
-                            {
-                                Console.WriteLine(replayInfo.Unknown1);
-                            }
-
-                            replayInfo.Accuracy = reader.ReadSingle();
-                            replayInfo.Assists = reader.ReadUInt32();
-                            replayInfo.Eliminations = reader.ReadUInt32();
-                            replayInfo.WeaponDamageToPlayers = reader.ReadUInt32();
-                            replayInfo.OtherDamageToPlayers = reader.ReadUInt32();
-                            replayInfo.Revives = reader.ReadUInt32();
-                            replayInfo.DamageTaken = reader.ReadUInt32();
-                            replayInfo.DamageToStructures = reader.ReadUInt32();
-                            replayInfo.MaterialsGathered = reader.ReadUInt32();
-                            replayInfo.MaterialsUsed = reader.ReadUInt32();
-                            replayInfo.TotalTraveled = reader.ReadUInt32();
-                        }
-
-                        if (metadata == AthenaMatchTeamStatsMetadata)
-                        {
-                            replayInfo.Unknown2 = reader.ReadUInt32();
-
-                            if (replayInfo.Unknown2 != 0)
-                            {
-                                Console.WriteLine(replayInfo.Unknown2);
-                            }
-                            replayInfo.Position = reader.ReadUInt32();
-                            replayInfo.TotalPlayers = reader.ReadUInt32();
-                        }
-                    }
-                    reader.BaseStream.Seek(offset + chunkSizeInBytes, SeekOrigin.Begin);
-                }
+            if (magicNumber != FortniteBinaryReader.FileMagic)
+            {
+                throw new InvalidReplayException("Invalid replay file");
             }
 
-            return replayInfo;
+            var fileVersion = reader.ReadUInt32();
+            var LengthInMs = reader.ReadUInt32();
+            var networkVersion = reader.ReadUInt32();
+            var Changelist = reader.ReadUInt32();
+            var FriendlyName = reader.ReadFString();
+            var isLive = reader.ReadAsBoolean();
+
+            if (fileVersion >= (uint)ReplayVersionHistory.HISTORY_RECORDED_TIMESTAMP)
+            {
+                var Timestamp = new DateTime(reader.ReadInt64());
+            }
+
+            if (fileVersion >= (uint)ReplayVersionHistory.HISTORY_COMPRESSION)
+            {
+                var isCompressed = reader.ReadAsBoolean();
+            }
+        }
+
+        private void ParseChunks(FortniteBinaryReader reader)
+        {
+            while (reader.BaseStream.Position < reader.BaseStream.Length)
+            {
+                var chunkType = (ReplayChunkType)reader.ReadUInt32();
+                var chunkSize = reader.ReadInt32();
+                var offset = reader.BaseStream.Position;
+
+                if (chunkType == ReplayChunkType.Checkpoint)
+                {
+                    ParseCheckPoint(reader);
+                }
+
+                else if (chunkType == ReplayChunkType.Event)
+                {
+                    ParseEvent(reader);
+                }
+
+                else if (chunkType == ReplayChunkType.ReplayData)
+                {
+                    ParseReplayData(reader);
+                }
+
+                else if (chunkType == ReplayChunkType.Header)
+                {
+                    ParseHeader(reader);
+                }
+
+                reader.BaseStream.Seek(offset + chunkSize, SeekOrigin.Begin);
+            }
+        }
+
+        private void ParseCheckPoint(FortniteBinaryReader reader)
+        {
+            var checkpointId = reader.ReadFString();
+            var checkpoint = reader.ReadFString();
+        }
+
+        private void ParseEvent(FortniteBinaryReader reader)
+        {
+            var id = reader.ReadFString();
+            var group = reader.ReadFString();
+            var metadata = reader.ReadFString();
+            var time1 = reader.ReadUInt32();
+            var time2 = reader.ReadUInt32();
+            var sizeInBytes = reader.ReadInt32();
+
+            if (group == ReplayEventTypes.PLAYER_ELIMINATION)
+            {
+                ParseElimination(reader, time1);
+            }
+
+            else if (metadata == ReplayEventTypes.MATCH_STATS)
+            {
+                ParseMatchStats(reader);
+            }
+
+            else if (metadata == ReplayEventTypes.TEAM_STATS)
+            {
+                ParseTeamStats(reader);
+            }
+        }
+
+        private void ParseTeamStats(FortniteBinaryReader reader)
+        {
+            Replay.TeamStats.Unknown = reader.ReadUInt32();
+            Replay.TeamStats.Position = reader.ReadUInt32();
+            Replay.TeamStats.TotalPlayers = reader.ReadUInt32();
+        }
+
+        private void ParseMatchStats(FortniteBinaryReader reader)
+        {
+            reader.SkipBytes(4);
+
+            Replay.Stats.Accuracy = reader.ReadSingle();
+            Replay.Stats.Assists = reader.ReadUInt32();
+            Replay.Stats.Eliminations = reader.ReadUInt32();
+            Replay.Stats.WeaponDamage = reader.ReadUInt32();
+            Replay.Stats.OtherDamage = reader.ReadUInt32();
+            Replay.Stats.Revives = reader.ReadUInt32();
+            Replay.Stats.DamageTaken = reader.ReadUInt32();
+            Replay.Stats.DamageToStructures = reader.ReadUInt32();
+            Replay.Stats.MaterialsGathered = reader.ReadUInt32();
+            Replay.Stats.MaterialsUsed = reader.ReadUInt32();
+            Replay.Stats.TotalTraveled = reader.ReadUInt32();
+        }
+
+        private void ParseElimination(FortniteBinaryReader reader, uint time)
+        {
+            var release = Replay.Header.ReleaseNumber;
+            if (release == 4)
+            {
+                reader.SkipBytes(12);
+            }
+            else if (release == 42)
+            {
+                reader.SkipBytes(12);
+            }
+            else if (release >= 43)
+            {
+                reader.SkipBytes(45);
+            }
+            else if (release == 0)
+            {
+                reader.SkipBytes(45);
+            }
+            else
+            {
+                throw new PlayerEliminationException();
+            }
+
+            var elimination = new PlayerElimination
+            {
+                Eliminated = reader.ReadFString(),
+                Eliminator = reader.ReadFString(),
+                GunType = (GunType)reader.ReadByte(),
+                Knocked = reader.ReadInt32() == 1,
+                Time = time.MillisecondsToTimeStamp()
+            };
+            Replay.Eliminations.Add(elimination);
+        }
+
+        private void ParseReplayData(FortniteBinaryReader reader)
+        {
+            var start = reader.ReadUInt32();
+            var end = reader.ReadUInt32();
+            var length = reader.ReadUInt32();
+            var unknown = reader.ReadUInt32();
+            length = reader.ReadUInt32();
+        }
+
+        private void ParseHeader(FortniteBinaryReader reader)
+        {
+            reader.SkipBytes(4);
+            Replay.Header.HeaderVersion = reader.ReadUInt32();
+            Replay.Header.ServerSideVersion = reader.ReadUInt32();
+            Replay.Header.Season = reader.ReadUInt32();
+            Replay.Header.Unknown1 = reader.ReadUInt32();
+            
+            if (Replay.Header.HeaderVersion >= (int) ReplayHeaderTypes.HEADER_GUID)
+            {
+                Replay.Header.Guid = reader.ReadGUID();
+            }
+            Replay.Header.Unknown2 = reader.ReadUInt16();
+            Replay.Header.ReplayVersion = reader.ReadUInt32();
+            Replay.Header.FortniteVersion = reader.ReadUInt32();
+            Replay.Header.Release = reader.ReadFString();
+
+            if (reader.ReadAsBoolean())
+            {
+                Replay.Header.Map = reader.ReadFString();
+            }
+
+            Replay.Header.Unknown3 = reader.ReadUInt32();
+            Replay.Header.Unknown4 = reader.ReadUInt32();
+            if (reader.ReadAsBoolean())
+            {
+                Replay.Header.SubGame = reader.ReadFString();
+            }
         }
     }
 }

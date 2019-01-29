@@ -14,12 +14,14 @@ namespace FortniteReplayReader.Models
         GrenadeLauncher = 10,
         RPG = 11,
         Minigun = 12,
+        Bow = 13,
         Trap = 14,
         FinallyEliminated = 15,
-        Unknown17 = 17,
+        Vehicle = 21,
+        LMG = 22,
         GasNade = 23,
-        Unknown24 = 24,
+        OutOfBound = 24,
+        Turret = 25,
         TeamSwitch = 26,
-        Unknown28 = 28,
     }
 }
