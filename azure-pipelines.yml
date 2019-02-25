@@ -17,7 +17,7 @@ pool:
 
 variables:
   buildConfiguration: 'Release'
-  directory: '/src'
+  directory: 'src'
 
 steps:
 - script: dotnet restore
