@@ -17,14 +17,17 @@ pool:
 
 variables:
   buildConfiguration: 'Release'
+  directory: '/src'
 
 steps:
-- script: cd src/
 - script: dotnet restore
+  workingDirectory: $(directory)
 - script: dotnet build --configuration $(buildConfiguration)
   displayName: 'dotnet build $(buildConfiguration)'
+  workingDirectory: $(directory)
 - task: DotNetCoreCLI@2
   inputs:
+    workingDirectory: $(directory)
     command: test
     projects: '**/*Tests/*.csproj'
     arguments: '--configuration $(buildConfiguration) --collect "Code coverage"'
