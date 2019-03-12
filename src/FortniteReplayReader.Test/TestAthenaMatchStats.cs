@@ -1,5 +1,5 @@
+using FortniteReplayReader.Core.Models;
 using FortniteReplayReader.Extensions;
-using FortniteReplayReader.Models;
 using System;
 using Xunit;
 
@@ -26,7 +26,7 @@ namespace FortniteReplayReader.Test
             Assert.Equal(expected.OtherDamage, actual.OtherDamage);
             Assert.Equal(expected.DamageToPlayers, actual.DamageToPlayers);
             Assert.Equal(expected.DamageToStructures, actual.DamageToStructures);
-            Assert.Equal((int) expected.TotalTraveled, actual.TotalTraveled.CentimetersToDistance());
+            Assert.Equal((int)expected.TotalTraveled, actual.TotalTraveled.CentimetersToDistance());
         }
 
         [Fact]
@@ -73,7 +73,7 @@ namespace FortniteReplayReader.Test
                 DamageToStructures = 6905,
                 TotalTraveled = 2,
             };
-            
+
             AssertReplay(expected, replay.Stats);
         }
 

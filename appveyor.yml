@@ -1,0 +1,17 @@
+version: "{build}"
+image: Visual Studio 2017
+branches:
+  only:
+    - master
+    - develop
+environment:
+  DOTNET_CLI_TELEMETRY_OPTOUT: 1
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: 1
+  NUGET_API_KEY:
+    secure: ohHiXNrEknVpIdk8dhB+QOtq7AX25tPEQswAPGxlJ/7O7I8aTPLfZeUpr85d/6Go
+  COVERALLS_TOKEN:
+    secure: ykS2VuKjPwvML8nq8Z+OzbCNUZ1+a5BQ1P+Y9jM27zOrIJYSyuiIYvEsZRbCaIUR
+build_script:
+- ps: .\build.ps1 --currentBranch=$env:APPVEYOR_REPO_BRANCH --nugetApiKey=$env:NUGET_API_KEY --coverallsToken=$env:COVERALLS_TOKEN
+test: off
+deploy: off
