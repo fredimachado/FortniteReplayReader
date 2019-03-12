@@ -97,7 +97,7 @@ Task("Test")
     .Does(() => {
         var settings = new DotNetCoreTestSettings
         {
-            ArgumentCustomization = args => args.Append("/p:Include=\"[FortniteReplayReader.Test]*\"")
+            ArgumentCustomization = args => args.Append("/p:Include=\"[FortniteReplayReader*]*\"")
                                                 .Append("/p:CollectCoverage=true")
                                                 .Append("/p:CoverletOutputFormat=opencover")
                                                 .Append("/p:CoverletOutput=./" + coverageResultsFileName)
