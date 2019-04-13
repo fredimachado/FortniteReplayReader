@@ -52,7 +52,7 @@ namespace FortniteReplayObservers.Mqtt
         {
             var message = new MqttApplicationMessageBuilder()
                 .WithTopic(CreateTopic())
-                .WithPayload("{ \"start\": 1 }")
+                .WithPayload("{ \"started\": 1 }")
                 .WithAtLeastOnceQoS()
                 .WithRetainFlag(false)
                 .Build();
@@ -63,6 +63,16 @@ namespace FortniteReplayObservers.Mqtt
 
         public void OnCompleted()
         {
+            var message = new MqttApplicationMessageBuilder()
+                .WithTopic(CreateTopic())
+                .WithPayload("{ \"finished\": 1 }")
+                .WithAtLeastOnceQoS()
+                .WithRetainFlag(false)
+                .Build();
+
+            var task = mqttClient.PublishAsync(message);
+            task.Wait();
+
             this.Unsubscribe();
         }
 
