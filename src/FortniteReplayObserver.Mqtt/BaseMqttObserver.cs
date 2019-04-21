@@ -12,19 +12,19 @@ namespace FortniteReplayObservers.Mqtt
         private IDisposable unsubscriber;
         private IMqttClient mqttClient;
 
-        private MqttSettings _settings;
+        protected MqttSettings Settings;
 
         public BaseMqttObserver()
         {
-            _settings = ReadSettingsFile<MqttSettings>();
+            Settings = ReadSettingsFile<MqttSettings>();
 
             var factory = new MqttFactory();
             mqttClient = factory.CreateMqttClient();
 
             var options = new MqttClientOptionsBuilder()
                 .WithClientId($"mqttnet_{Guid.NewGuid()}")
-                .WithTcpServer(_settings.HostName, _settings.Port)
-                .WithCredentials(_settings.UserName, _settings.Password)
+                .WithTcpServer(Settings.HostName, Settings.Port)
+                .WithCredentials(Settings.UserName, Settings.Password)
                 .WithTls()
                 .Build();
 
@@ -39,9 +39,9 @@ namespace FortniteReplayObservers.Mqtt
 
         protected virtual string CreateTopic()
         {
-            return $"Fortnite/{_settings.Topic}";
+            return $"Fortnite/{Settings.Topic}";
         }
-        
+
 
         protected virtual string CreateMessagePayload(T e)
         {
@@ -83,15 +83,22 @@ namespace FortniteReplayObservers.Mqtt
 
         public void OnNext(T value)
         {
-            var message = new MqttApplicationMessageBuilder()
-                .WithTopic(CreateTopic())
-                .WithPayload(CreateMessagePayload(value))
-                .WithAtLeastOnceQoS()
-                .WithRetainFlag(false)
-                .Build();
+            var topic = CreateTopic();
+            var payload = CreateMessagePayload(value);
 
-            var task = mqttClient.PublishAsync(message);
-            task.Wait();
+            if (!string.IsNullOrWhiteSpace(topic) && !string.IsNullOrWhiteSpace(payload))
+            {
+                var message = new MqttApplicationMessageBuilder()
+                    .WithTopic(topic)
+                    .WithPayload(payload)
+                    .WithAtLeastOnceQoS()
+                    .WithRetainFlag(false)
+                    .Build();
+
+                var task = mqttClient.PublishAsync(message);
+                task.Wait();
+            }
+
         }
 
         public override void Subscribe(IFortniteObservable<T> provider)

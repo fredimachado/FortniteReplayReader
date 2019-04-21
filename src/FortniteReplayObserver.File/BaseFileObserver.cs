@@ -8,12 +8,11 @@ namespace FortniteReplayObservers.File
     public class BaseFileObserver<T> : FortniteObserver<T>, IFortniteObserver<T>
     {
         private IDisposable unsubscriber;
-        private string path = "";
+        protected FileSettings Settings;
 
         public BaseFileObserver()
         {
-            var settings = ReadSettingsFile<FileSettings>();
-            path = settings.Path;
+            Settings = ReadSettingsFile<FileSettings>();
         }
 
         protected virtual string CreateMessagePayload(T e)
@@ -33,7 +32,7 @@ namespace FortniteReplayObservers.File
 
         public void OnNext(T value)
         {
-            System.IO.File.AppendAllText(path, CreateMessagePayload(value));
+            System.IO.File.AppendAllText(Settings.Path, CreateMessagePayload(value) + "\n");
         }
 
         public override void Subscribe(IFortniteObservable<T> provider)
@@ -51,12 +50,13 @@ namespace FortniteReplayObservers.File
 
         public void OnStart()
         {
-            System.IO.File.AppendAllText(path, "started");
+            System.IO.File.AppendAllText(Settings.Path, "started \n");
         }
     }
 
     public class FileSettings
     {
+        public string UserName { get; set; }
         public string Path { get; set; }
     }
 }

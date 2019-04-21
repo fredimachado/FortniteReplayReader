@@ -3,13 +3,9 @@
   <ItemGroup>
     <ProjectReference Include="..\FortniteReplayObserver.File\FortniteReplayObserver.File.csproj" />
     <ProjectReference Include="..\FortniteReplayObserver.Mqtt\FortniteReplayObserver.Mqtt.csproj" />
+    <ProjectReference Include="..\FortniteReplayReader.Core\FortniteReplayReader.Core.csproj" />
+    <ProjectReference Include="..\FortniteReplayReader.Observable\FortniteReplayReader.Observable.csproj" />
     <ProjectReference Include="..\FortniteReplayReader\FortniteReplayReader.csproj" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <Reference Include="FortniteReplayReader.Observerable">
-      <HintPath>..\FortniteReplayReader.Observerable\bin\Debug\netcoreapp2.1\FortniteReplayReader.Observerable.dll</HintPath>
-    </Reference>
   </ItemGroup>
 
   <PropertyGroup>
