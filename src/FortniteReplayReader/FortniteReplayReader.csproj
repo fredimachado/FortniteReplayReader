@@ -7,6 +7,17 @@
     <OutputType>Library</OutputType>
     <StartupObject />
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+    <Authors>Shiqan</Authors>
+    <Product />
+    <AssemblyVersion>0.0.0.1</AssemblyVersion>
+    <PackageProjectUrl>https://github.com/Shiqan/FortniteReplayReader</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/Shiqan/FortniteReplayReader</RepositoryUrl>
+    <RepositoryType>Github</RepositoryType>
+    <PackageTags>Fortnite</PackageTags>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
+    <DocumentationFile></DocumentationFile>
   </PropertyGroup>
 
   <ItemGroup>

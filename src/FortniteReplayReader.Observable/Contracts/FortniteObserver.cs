@@ -1,10 +1,9 @@
-﻿using FortniteReplayReader.Core.Exceptions;
-using FortniteReplayReader.Observerable.Contracts;
+﻿using FortniteReplayReader.Observerable.Exceptions;
 using Newtonsoft.Json;
 using System;
 using System.IO;
 
-namespace FortniteReplayReader.Core.Contracts
+namespace FortniteReplayReader.Observerable.Contracts
 {
     public abstract class FortniteObserver<T>
     {

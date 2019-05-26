@@ -1,3 +1,4 @@
+using FortniteReplayReader.Observerable;
 using System.IO;
 using Xunit;
 
@@ -24,7 +25,7 @@ namespace FortniteReplayReader.Test
 
             using (var stream = File.Open(replayFile, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
             {
-                var provider = new ElimObservableFortniteBinaryReader(stream, 500);
+                var provider = new ElimObservableFortniteBinaryReader(stream, 708);
                 provider.ReadFile();
             }
         }

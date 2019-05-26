@@ -55,7 +55,7 @@ namespace FortniteReplayReader
             if (BaseStream.Position == 0)
             {
                 OnStart();
-                this.ParseMeta();
+                this.ParseMetadata();
             }
 
             this.ParseChunks();

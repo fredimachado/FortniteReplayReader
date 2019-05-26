@@ -1,11 +1,9 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Text;
 
 namespace FortniteReplayReader.Observerable.Contracts
 {
     public interface IFortniteObservable<T>
-    {        
+    {
         //
         // Summary:
         //     Notifies the provider that an observer is to receive notifications.

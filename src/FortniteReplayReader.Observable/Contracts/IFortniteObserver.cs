@@ -1,6 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Text;
 
 namespace FortniteReplayReader.Observerable.Contracts
 {
@@ -9,6 +7,6 @@ namespace FortniteReplayReader.Observerable.Contracts
         //
         // Summary:
         //     Notifies the observer that the provider has started sending push-based notifications.
-        void OnStart(); 
+        void OnStart();
     }
 }

@@ -1,21 +1,38 @@
-﻿using FortniteReplayReader.Core.Exceptions;
+﻿using FortniteReplayReader.Core.Contracts;
+using FortniteReplayReader.Core.Exceptions;
 using FortniteReplayReader.Core.Models;
+using FortniteReplayReader.Core.Models.Enums;
+using FortniteReplayReader.Core.Models.Events;
 using FortniteReplayReader.Extensions;
 using System;
 using System.IO;
-using System.Text;
 
 namespace FortniteReplayReader
 {
-    public class FortniteBinaryReader : BinaryReader
+    public class FortniteBinaryReader : CustomBinaryReader
     {
         public const uint FileMagic = 0x1CA2E27F;
+
+        /// <summary>
+        /// see https://github.com/EpicGames/UnrealEngine/blob/811c1ce579564fa92ecc22d9b70cbe9c8a8e4b9a/Engine/Source/Runtime/Engine/Classes/Engine/DemoNetDriver.h#L107
+        /// </summary>
+        public const uint NetworkMagic = 0x2CF5A13D;
+
+        /// <summary>
+        /// see https://github.com/EpicGames/UnrealEngine/blob/811c1ce579564fa92ecc22d9b70cbe9c8a8e4b9a/Engine/Source/Runtime/Engine/Classes/Engine/DemoNetDriver.h#L111
+        /// </summary>
+        public const uint MetadataMagic = 0x3D06B24E;
 
         protected Replay Replay { get; set; }
 
         public FortniteBinaryReader(Stream input) : base(input)
         {
             this.Replay = new Replay();
+        }
+
+        public FortniteBinaryReader(Stream input, Replay replay) : base(input)
+        {
+            this.Replay = replay;
         }
 
         public FortniteBinaryReader(Stream input, int offset) : base(input)
@@ -29,62 +46,33 @@ namespace FortniteReplayReader
             BaseStream.Position = offset;
         }
 
+        public FortniteBinaryReader(Stream input, int offset, Replay replay) : base(input)
+        {
+            if (input.Length < offset)
+            {
+                throw new EndOfStreamException();
+            }
+
+            this.Replay = replay;
+            BaseStream.Position = offset;
+        }
+
         public virtual Replay ReadFile()
         {
             if (BaseStream.Position == 0)
             {
-                this.ParseMeta();
+                this.Replay.Metadata = this.ParseMetadata();
             }
 
             this.ParseChunks();
             return this.Replay;
         }
 
-        protected string ReadFString()
-        {
-            var length = ReadInt32();
-
-            if (length == 0)
-            {
-                return "";
-            }
-
-            var isUnicode = length < 0;
-            byte[] data;
-            string value;
-
-            if (isUnicode)
-            {
-                length = -2 * length;
-                data = ReadBytes(length);
-                value = Encoding.Unicode.GetString(data);
-            }
-            else
-            {
-                data = ReadBytes(length);
-                value = Encoding.Default.GetString(data);
-            }
-
-            return value.Trim(new[] { ' ', '\0' });
-        }
-
-        protected bool ReadAsBoolean()
-        {
-            return ReadUInt32() == 1;
-        }
-
-        protected string ReadGUID()
-        {
-            var guid = new Guid(ReadBytes(16));
-            return guid.ToString();
-        }
-
-        protected void SkipBytes(uint byteCount)
-        {
-            BaseStream.Seek(byteCount, SeekOrigin.Current);
-        }
-
-        protected void ParseMeta()
+        /// <summary>
+        /// see https://github.com/EpicGames/UnrealEngine/blob/70bc980c6361d9a7d23f6d23ffe322a2d6ef16fb/Engine/Source/Runtime/NetworkReplayStreaming/LocalFileNetworkReplayStreaming/Private/LocalFileNetworkReplayStreaming.cpp#L183
+        /// </summary>
+        /// <returns></returns>
+        public virtual ReplayMetadata ParseMetadata()
         {
             var magicNumber = ReadUInt32();
 
@@ -93,29 +81,39 @@ namespace FortniteReplayReader
                 throw new InvalidReplayException("Invalid replay file");
             }
 
-            var fileVersion = ReadUInt32();
-            var LengthInMs = ReadUInt32();
-            var networkVersion = ReadUInt32();
-            var Changelist = ReadUInt32();
-            var FriendlyName = ReadFString();
-            var isLive = ReadAsBoolean();
+            var fileVersion = ReadUInt32AsEnum<ReplayVersionHistory>();
 
-            if (fileVersion >= (uint)ReplayVersionHistory.HISTORY_RECORDED_TIMESTAMP)
+            var meta = new ReplayMetadata()
             {
-                var Timestamp = new DateTime(ReadInt64());
+                FileVersion = fileVersion,
+                LengthInMs = ReadUInt32(),
+                NetworkVersion = ReadUInt32(),
+                Changelist = ReadUInt32(),
+                FriendlyName = ReadFString(),
+                IsLive = ReadUInt32AsBoolean()
+            };
+
+            if (fileVersion >= ReplayVersionHistory.RecordedTimestamp)
+            {
+                meta.Timestamp = DateTime.FromBinary(ReadInt64());
             }
 
-            if (fileVersion >= (uint)ReplayVersionHistory.HISTORY_COMPRESSION)
+            if (fileVersion >= ReplayVersionHistory.Compression)
             {
-                var isCompressed = ReadAsBoolean();
+                meta.IsCompressed = ReadUInt32AsBoolean();
             }
+
+            return meta;
         }
 
-        protected void ParseChunks()
+        /// <summary>
+        /// see https://github.com/EpicGames/UnrealEngine/blob/70bc980c6361d9a7d23f6d23ffe322a2d6ef16fb/Engine/Source/Runtime/NetworkReplayStreaming/LocalFileNetworkReplayStreaming/Private/LocalFileNetworkReplayStreaming.cpp#L243
+        /// </summary>
+        public virtual void ParseChunks()
         {
             while (BaseStream.Position < BaseStream.Length)
             {
-                var chunkType = (ReplayChunkType)ReadUInt32();
+                var chunkType = ReadUInt32AsEnum<ReplayChunkType>();
                 var chunkSize = ReadInt32();
                 var offset = BaseStream.Position;
 
@@ -136,144 +134,271 @@ namespace FortniteReplayReader
 
                 else if (chunkType == ReplayChunkType.Header)
                 {
-                    ParseHeader();
+                    Replay.Header = ParseHeader();
                 }
 
-                BaseStream.Seek(offset + chunkSize, SeekOrigin.Begin);
+                if (BaseStream.Position != offset + chunkSize)
+                {
+                    // log
+                    BaseStream.Seek(offset + chunkSize, SeekOrigin.Begin);
+                }
             }
         }
 
-        protected virtual void ParseCheckPoint()
+        /// <summary>
+        /// see https://github.com/EpicGames/UnrealEngine/blob/70bc980c6361d9a7d23f6d23ffe322a2d6ef16fb/Engine/Source/Runtime/NetworkReplayStreaming/LocalFileNetworkReplayStreaming/Private/LocalFileNetworkReplayStreaming.cpp#L282
+        /// </summary>
+        public virtual void ParseCheckPoint()
         {
-            var checkpointId = ReadFString();
-            var checkpoint = ReadFString();
+            // see https://github.com/Shiqan/FortniteReplayDecompressor
         }
 
-        protected void ParseEvent()
+        /// <summary>
+        /// see https://github.com/EpicGames/UnrealEngine/blob/70bc980c6361d9a7d23f6d23ffe322a2d6ef16fb/Engine/Source/Runtime/NetworkReplayStreaming/LocalFileNetworkReplayStreaming/Private/LocalFileNetworkReplayStreaming.cpp#L363
+        /// </summary>
+        /// <returns></returns>
+        public virtual IEvent ParseEvent()
         {
-            var id = ReadFString();
-            var group = ReadFString();
-            var metadata = ReadFString();
-            var time1 = ReadUInt32();
-            var time2 = ReadUInt32();
-            var sizeInBytes = ReadInt32();
-
-            if (group == ReplayEventTypes.PLAYER_ELIMINATION)
+            var metadata = new EventMetadata
             {
-                ParseElimination(time1);
+                Id = ReadFString(),
+                Group = ReadFString(),
+                Metadata = ReadFString(),
+                StartTime = ReadUInt32(),
+                EndTime = ReadUInt32(),
+                SizeInBytes = ReadInt32()
+            };
+
+            if (metadata.Group == ReplayEventTypes.PLAYER_ELIMINATION)
+            {
+                var elimination = ParseElimination(metadata);
+                Replay.Eliminations.Add(elimination);
+                return elimination;
             }
 
-            else if (metadata == ReplayEventTypes.MATCH_STATS)
+            else if (metadata.Metadata == ReplayEventTypes.MATCH_STATS)
             {
-                ParseMatchStats();
+                Replay.Stats = ParseMatchStats(metadata);
+                return Replay.Stats;
             }
 
-            else if (metadata == ReplayEventTypes.TEAM_STATS)
+            else if (metadata.Metadata == ReplayEventTypes.TEAM_STATS)
             {
-                ParseTeamStats();
+                Replay.TeamStats = ParseTeamStats(metadata);
+                return Replay.Stats;
             }
+
+            else if (metadata.Metadata == ReplayEventTypes.ENCRYPTION_KEY)
+            {
+                return ParseEncryptionKeyEvent(metadata);
+            }
+
+            else if (metadata.Metadata == ReplayEventTypes.CHARACTER_SAMPLE)
+            {
+                return ParseCharacterSample(metadata);
+            }
+
+            else if (metadata.Group == ReplayEventTypes.ZONE_UPDATE)
+            {
+                return ParseZoneUpdateEvent(metadata);
+            }
+
+            else if (metadata.Group == ReplayEventTypes.BATTLE_BUS)
+            {
+                return ParseBattleBusFlightEvent(metadata);
+            }
+
+            // log
+            // optionally throw?
+            throw new UnknownEventException();
         }
 
-        protected virtual TeamStats ParseTeamStats()
+        public virtual CharacterSample ParseCharacterSample(EventMetadata metadata)
         {
-            Replay.TeamStats.Unknown = ReadUInt32();
-            Replay.TeamStats.Position = ReadUInt32();
-            Replay.TeamStats.TotalPlayers = ReadUInt32();
-            return Replay.TeamStats;
+            SkipBytes(metadata.SizeInBytes);
+            return new CharacterSample()
+            {
+                EventMetadata = metadata,
+            };
         }
 
-        protected virtual Stats ParseMatchStats()
+        public virtual EncryptionKey ParseEncryptionKeyEvent(EventMetadata metadata)
+        {
+            return new EncryptionKey()
+            {
+                EventMetadata = metadata,
+                Key = ReadBytesToString(32)
+            };
+        }
+
+        public virtual ZoneUpdate ParseZoneUpdateEvent(EventMetadata metadata)
+        {
+            // 21 bytes in 9, 20 in 9.10...
+            SkipBytes(metadata.SizeInBytes);
+            return new ZoneUpdate()
+            {
+                EventMetadata = metadata,
+            };
+        }
+
+        public virtual BattleBusFlight ParseBattleBusFlightEvent(EventMetadata metadata)
+        {
+            // Added in 9 and removed again in 9.10?
+            SkipBytes(metadata.SizeInBytes);
+            return new BattleBusFlight()
+            {
+                EventMetadata = metadata,
+            };
+        }
+
+        public virtual TeamStats ParseTeamStats(EventMetadata metadata)
+        {
+            return new TeamStats()
+            {
+                EventMetadata = metadata,
+                Unknown = ReadUInt32(),
+                Position = ReadUInt32(),
+                TotalPlayers = ReadUInt32()
+            };
+        }
+
+        public virtual Stats ParseMatchStats(EventMetadata metadata)
         {
             SkipBytes(4);
-
-            Replay.Stats.Accuracy = ReadSingle();
-            Replay.Stats.Assists = ReadUInt32();
-            Replay.Stats.Eliminations = ReadUInt32();
-            Replay.Stats.WeaponDamage = ReadUInt32();
-            Replay.Stats.OtherDamage = ReadUInt32();
-            Replay.Stats.Revives = ReadUInt32();
-            Replay.Stats.DamageTaken = ReadUInt32();
-            Replay.Stats.DamageToStructures = ReadUInt32();
-            Replay.Stats.MaterialsGathered = ReadUInt32();
-            Replay.Stats.MaterialsUsed = ReadUInt32();
-            Replay.Stats.TotalTraveled = ReadUInt32();
-
-            return Replay.Stats;
+            return new Stats()
+            {
+                EventMetadata = metadata,
+                Accuracy = ReadSingle(),
+                Assists = ReadUInt32(),
+                Eliminations = ReadUInt32(),
+                WeaponDamage = ReadUInt32(),
+                OtherDamage = ReadUInt32(),
+                Revives = ReadUInt32(),
+                DamageTaken = ReadUInt32(),
+                DamageToStructures = ReadUInt32(),
+                MaterialsGathered = ReadUInt32(),
+                MaterialsUsed = ReadUInt32(),
+                TotalTraveled = ReadUInt32()
+            };
         }
 
-        protected virtual PlayerElimination ParseElimination(uint time)
+        public virtual PlayerElimination ParseElimination(EventMetadata metadata)
         {
-            var release = Replay.Header.ReleaseNumber;
-            if (release == 4)
+            try
             {
-                SkipBytes(12);
+                var branch = Replay.Header.Branch;
+                var elim = new PlayerElimination
+                {
+                    EventMetadata = metadata
+                };
+                if (Replay.Header.EngineNetworkVersion >= EngineNetworkVersionHistory.HISTORY_UPDATE9 && branch.Contains("9.10"))
+                {
+                    SkipBytes(87);
+                    elim.Eliminated = ReadGUID();
+                    SkipBytes(2);
+                    elim.Eliminator = ReadGUID();
+                }
+                else
+                {
+
+                    switch (branch)
+                    {
+                        case "++Fortnite+Release-4.0":
+                            SkipBytes(12);
+                            break;
+                        case "++Fortnite+Release-4.2":
+                            SkipBytes(40);
+                            break;
+                        default:
+                            SkipBytes(45);
+                            break;
+                    }
+                    elim.Eliminated = ReadFString();
+                    elim.Eliminator = ReadFString();
+                }
+
+                elim.GunType = ReadByteAsEnum<GunType>();
+                elim.Knocked = ReadUInt32AsBoolean();
+                elim.Time = metadata.StartTime.MillisecondsToTimeStamp();
+                return elim;
             }
-            else if (release == 42)
+            catch (Exception ex)
             {
-                SkipBytes(12);
+                throw new PlayerEliminationException($"Error while parsing PlayerElimination at timestamp {metadata.StartTime}", ex);
             }
-            else if (release >= 43)
+        }
+
+        /// <summary>
+        /// see https://github.com/EpicGames/UnrealEngine/blob/70bc980c6361d9a7d23f6d23ffe322a2d6ef16fb/Engine/Source/Runtime/NetworkReplayStreaming/LocalFileNetworkReplayStreaming/Private/LocalFileNetworkReplayStreaming.cpp#L318
+        /// </summary>
+        public virtual void ParseReplayData()
+        {
+            // see https://github.com/Shiqan/FortniteReplayDecompressor
+        }
+
+        /// <summary>
+        /// see https://github.com/EpicGames/UnrealEngine/blob/811c1ce579564fa92ecc22d9b70cbe9c8a8e4b9a/Engine/Source/Runtime/Engine/Classes/Engine/DemoNetDriver.h#L191
+        /// </summary>
+        /// <returns>Header</returns>
+        public virtual Header ParseHeader()
+        {
+            var magic = ReadUInt32();
+
+            if (magic != NetworkMagic)
             {
-                SkipBytes(45);
+                throw new InvalidReplayException($"Header.Magic != NETWORK_DEMO_MAGIC. Header.Magic: {magic}, NETWORK_DEMO_MAGIC: {NetworkMagic}");
             }
-            else if (release == 0)
+
+            var header = new Header
             {
-                SkipBytes(45);
+                NetworkVersion = ReadUInt32AsEnum<NetworkVersionHistory>()
+            };
+
+            if (header.NetworkVersion <= NetworkVersionHistory.HISTORY_EXTRA_VERSION)
+            {
+                throw new InvalidReplayException($"Header.Version < MIN_NETWORK_DEMO_VERSION. Header.Version: {header.NetworkVersion}, MIN_NETWORK_DEMO_VERSION: {NetworkVersionHistory.HISTORY_EXTRA_VERSION}");
+            }
+
+            header.NetworkChecksum = ReadUInt32();
+            header.EngineNetworkVersion = ReadUInt32AsEnum<EngineNetworkVersionHistory>();
+            header.GameNetworkProtocolVersion = ReadUInt32();
+
+            if (header.NetworkVersion >= NetworkVersionHistory.HISTORY_HEADER_GUID)
+            {
+                header.Guid = ReadGUID();
+            }
+
+            if (header.NetworkVersion >= NetworkVersionHistory.HISTORY_SAVE_FULL_ENGINE_VERSION)
+            {
+                header.Major = ReadUInt16();
+                header.Minor = ReadUInt16();
+                header.Patch = ReadUInt16();
+                header.Changelist = ReadUInt32();
+                header.Branch = ReadFString();
             }
             else
             {
-                throw new PlayerEliminationException();
+                header.Changelist = ReadUInt32();
             }
 
-            var elimination = new PlayerElimination
+            if (header.NetworkVersion <= NetworkVersionHistory.HISTORY_MULTIPLE_LEVELS)
             {
-                Eliminated = ReadFString(),
-                Eliminator = ReadFString(),
-                GunType = (GunType)ReadByte(),
-                Knocked = ReadInt32() == 1,
-                Time = time.MillisecondsToTimeStamp()
-            };
-            Replay.Eliminations.Add(elimination);
-            return elimination;
-        }
-
-        protected virtual void ParseReplayData()
-        {
-            var start = ReadUInt32();
-            var end = ReadUInt32();
-            var length = ReadUInt32();
-            var unknown = ReadUInt32();
-            length = ReadUInt32();
-        }
-
-        protected void ParseHeader()
-        {
-            SkipBytes(4);
-            Replay.Header.HeaderVersion = ReadUInt32();
-            Replay.Header.ServerSideVersion = ReadUInt32();
-            Replay.Header.Season = ReadUInt32();
-            Replay.Header.Unknown1 = ReadUInt32();
-
-            if (Replay.Header.HeaderVersion >= (int)ReplayHeaderTypes.HEADER_GUID)
-            {
-                Replay.Header.Guid = ReadGUID();
+                throw new NotImplementedException();
             }
-            Replay.Header.Unknown2 = ReadUInt16();
-            Replay.Header.ReplayVersion = ReadUInt32();
-            Replay.Header.FortniteVersion = ReadUInt32();
-            Replay.Header.Release = ReadFString();
-
-            if (ReadAsBoolean())
+            else
             {
-                Replay.Header.Map = ReadFString();
+
+                header.LevelNamesAndTimes = ReadTupleArray(ReadFString, ReadUInt32);
             }
 
-            Replay.Header.Unknown3 = ReadUInt32();
-            Replay.Header.Unknown4 = ReadUInt32();
-            if (ReadAsBoolean())
+            if (header.NetworkVersion >= NetworkVersionHistory.HISTORY_HEADER_FLAGS)
             {
-                Replay.Header.SubGame = ReadFString();
+                header.Flags = ReadUInt32AsEnum<ReplayHeaderFlags>();
             }
+
+            header.GameSpecificData = ReadArray(ReadFString);
+
+            return header;
         }
     }
 }

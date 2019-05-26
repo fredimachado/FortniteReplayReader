@@ -1,4 +1,5 @@
 using FortniteReplayReader.Core.Models;
+using FortniteReplayReader.Core.Models.Events;
 using FortniteReplayReader.Extensions;
 using System;
 using Xunit;
@@ -99,6 +100,14 @@ namespace FortniteReplayReader.Test
             };
 
             AssertReplay(expected, replay.Stats);
+        }
+
+        [Fact]
+        public void TestAthenaMatchStatsUpdate910()
+        {
+            var replayFile = @"Replays/UnsavedReplay-2019.05.22-16.58.41.replay";
+            var replay = LoadReplayInfo(replayFile);
+            Assert.NotEmpty(replay.Eliminations);
         }
     }
 }

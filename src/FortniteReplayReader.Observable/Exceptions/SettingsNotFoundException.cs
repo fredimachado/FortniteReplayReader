@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace FortniteReplayReader.Core.Exceptions
+namespace FortniteReplayReader.Observerable.Exceptions
 {
     public class SettingsNotFoundException : Exception
     {

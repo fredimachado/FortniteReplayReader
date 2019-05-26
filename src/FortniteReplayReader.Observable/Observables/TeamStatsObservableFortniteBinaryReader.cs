@@ -1,7 +1,7 @@
 ﻿using FortniteReplayReader.Core.Models;
 using System.IO;
 
-namespace FortniteReplayReader
+namespace FortniteReplayReader.Observerable
 {
     public class TeamStatsObservableFortniteBinaryReader : ObservableFortniteBinaryReader<TeamStats>
     {

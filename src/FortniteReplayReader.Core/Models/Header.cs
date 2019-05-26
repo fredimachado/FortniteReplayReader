@@ -1,46 +1,33 @@
-﻿using System.Linq;
+﻿using FortniteReplayReader.Core.Models.Enums;
 
 namespace FortniteReplayReader.Core.Models
 {
+    /// <summary>
+    /// see https://github.com/EpicGames/UnrealEngine/blob/811c1ce579564fa92ecc22d9b70cbe9c8a8e4b9a/Engine/Source/Runtime/Engine/Classes/Engine/DemoNetDriver.h#L151
+    /// </summary>
     public class Header
     {
-        public uint HeaderVersion { get; set; }
-        public uint ServerSideVersion { get; set; }
-        public uint Season { get; set; }
-        public string Guid { get; set; } = "";
-        public uint ReplayVersion { get; set; }
-        public uint FortniteVersion { get; set; }
-        public string Release { get; set; }
-        public string Map { get; set; } = "";
-        public string SubGame { get; set; } = "";
+        public NetworkVersionHistory NetworkVersion { get; set; }
+        public uint NetworkChecksum { get; set; }
+        public EngineNetworkVersionHistory EngineNetworkVersion { get; set; }
+        public uint GameNetworkProtocolVersion { get; set; }
+        public string Guid { get; set; }
+        public ushort Major { get; set; }
+        public ushort Minor { get; set; }
+        public ushort Patch { get; set; }
+        public uint Changelist { get; set; }
+        public string Branch { get; set; }
+        public (string, uint)[] LevelNamesAndTimes { get; set; }
+        public ReplayHeaderFlags Flags { get; set; }
+        public string[] GameSpecificData { get; set; }
 
-        private int? _releaseNumber { get; set; }
-        public int? ReleaseNumber
+        /// <summary>
+        /// Returns whether or not this replay was recorded / is playing with Level Streaming fixes.
+        /// see https://github.com/EpicGames/UnrealEngine/blob/811c1ce579564fa92ecc22d9b70cbe9c8a8e4b9a/Engine/Source/Runtime/Engine/Classes/Engine/DemoNetDriver.h#L693
+        /// </summary>
+        public bool HasLevelStreamingFixes()
         {
-            get
-            {
-                if (_releaseNumber == null)
-                {
-                    if (string.IsNullOrWhiteSpace(Release))
-                    {
-                        _releaseNumber = 0;
-                    }
-                    else
-                    {
-                        var result = new string(Release.ToCharArray().Where(c => char.IsDigit(c)).ToArray());
-                        _releaseNumber = string.IsNullOrWhiteSpace(result) ? 0 : int.Parse(result);
-                    }
-                }
-
-                return _releaseNumber;
-            }
+            return Flags >= ReplayHeaderFlags.HasStreamingFixes;
         }
-
-
-        public uint Unknown1 { get; set; }
-        public uint Unknown2 { get; set; }
-        public uint Unknown3 { get; set; }
-        public uint Unknown4 { get; set; }
-
     }
 }

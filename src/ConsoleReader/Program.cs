@@ -1,6 +1,5 @@
-﻿using FortniteReplayObservers.File;
-using FortniteReplayObservers.Mqtt;
-using FortniteReplayReader;
+﻿using FortniteReplayReader;
+using System;
 using System.IO;
 using static System.Environment;
 
@@ -12,24 +11,26 @@ namespace ConsoleReader
         {
             var localAppDataFolder = GetFolderPath(SpecialFolder.LocalApplicationData);
             var replayFilesFolder = Path.Combine(localAppDataFolder, @"FortniteGame\Saved\Demos");
-
             var replayFiles = Directory.EnumerateFiles(replayFilesFolder, "*.replay");
 
             foreach (var replayFile in replayFiles)
             {
-                //    var replayReader = new ReplayReader();
-                //    var replayInfo = replayReader.Read(replayFile);
+                var replayReader = new ReplayReader();
+                var replayInfo = replayReader.Read(replayFile);
+                Console.WriteLine($"Total players: {replayInfo.TeamStats?.TotalPlayers}");
+                Console.WriteLine($"Total elims: {replayInfo.Eliminations?.Count}");
 
-                //    Console.WriteLine($"Total players: {replayInfo.TeamStats.TotalPlayers}");
-                
-                using (var stream = File.Open(replayFile, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
-                {
-                    using (var reader = new ElimObservableFortniteBinaryReader(stream, 554))
-                    {
-                        var replay = reader.ReadFile();
-                    }
-                }
+                //    using (var stream = File.Open(replayFile, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+                //    {
+                //        using (var reader = new ElimObservableFortniteBinaryReader(stream, 554))
+                //        {
+                //            var replay = reader.ReadFile();
+                //        }
+                //    }
             }
+
+            Console.WriteLine("---- done ----");
+            Console.ReadLine();
         }
     }
 }
