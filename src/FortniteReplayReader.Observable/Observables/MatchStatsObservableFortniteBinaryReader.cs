@@ -1,4 +1,5 @@
 ﻿using FortniteReplayReader.Core.Models;
+using FortniteReplayReader.Core.Models.Events;
 using System.IO;
 
 namespace FortniteReplayReader.Observerable
@@ -9,13 +10,21 @@ namespace FortniteReplayReader.Observerable
         {
         }
 
+        public MatchStatsObservableFortniteBinaryReader(Stream input, Replay replay, bool autoLoad = true) : base(input, replay, autoLoad)
+        {
+        }
+
         public MatchStatsObservableFortniteBinaryReader(Stream input, int offset, bool autoLoad = true) : base(input, offset, autoLoad)
         {
         }
 
-        protected override Stats ParseMatchStats()
+        public MatchStatsObservableFortniteBinaryReader(Stream input, int offset, Replay replay, bool autoLoad = true) : base(input, offset, replay, autoLoad)
         {
-            var stats = base.ParseMatchStats();
+        }
+
+        public override Stats ParseMatchStats(EventMetadata eventMetadata)
+        {
+            var stats = base.ParseMatchStats(eventMetadata);
             base.Notify(stats);
             return stats;
         }

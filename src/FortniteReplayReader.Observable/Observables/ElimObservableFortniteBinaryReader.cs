@@ -1,4 +1,5 @@
 ﻿using FortniteReplayReader.Core.Models;
+using FortniteReplayReader.Core.Models.Events;
 using System.IO;
 
 namespace FortniteReplayReader.Observerable
@@ -9,13 +10,21 @@ namespace FortniteReplayReader.Observerable
         {
         }
 
+        public ElimObservableFortniteBinaryReader(Stream input, Replay replay, bool autoLoad = true) : base(input, replay, autoLoad)
+        {
+        }
+
         public ElimObservableFortniteBinaryReader(Stream input, int offset, bool autoLoad = true) : base(input, offset, autoLoad)
         {
         }
 
-        protected override PlayerElimination ParseElimination(uint time)
+        public ElimObservableFortniteBinaryReader(Stream input, int offset, Replay replay, bool autoLoad = true) : base(input, offset, replay, autoLoad)
         {
-            var elim = base.ParseElimination(time);
+        }
+
+        public override PlayerElimination ParseElimination(EventMetadata eventMetadata)
+        {
+            var elim = base.ParseElimination(eventMetadata);
             base.Notify(elim);
             return elim;
         }

@@ -1,5 +1,4 @@
-﻿using FortniteReplayReader.Core.Contracts;
-using FortniteReplayReader.Core.Models;
+﻿using FortniteReplayReader.Core.Models;
 using FortniteReplayReader.Observerable.Contracts;
 using System;
 using System.Collections.Generic;
@@ -18,7 +17,17 @@ namespace FortniteReplayReader
             Init(autoLoad);
         }
 
+        public ObservableFortniteBinaryReader(Stream input, Replay replay, bool autoLoad = true) : base(input,  replay)
+        {
+            Init(autoLoad);
+        }
+
         public ObservableFortniteBinaryReader(Stream input, int offset, bool autoLoad = true) : base(input, offset)
+        {
+            Init(autoLoad);
+        }
+
+        public ObservableFortniteBinaryReader(Stream input, int offset, Replay replay, bool autoLoad = true) : base(input, offset, replay)
         {
             Init(autoLoad);
         }
